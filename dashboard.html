@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SuperID - Dashboard</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(to bottom, #0D0B2D, #0033FF);
+            color: white;
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+
+        .container {
+            max-width: 800px;
+            width: 100%;
+            padding: 20px;
+        }
+
+        .success-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 30px;
+        }
+
+        .check-icon {
+            width: 100px;
+            height: 100px;
+            fill: #4CAF50;
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            margin-bottom: 10px;
+        }
+
+        .btn-details {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+            margin-top: 20px;
+        }
+
+        .btn-details:hover {
+            background-color: #45a049;
+        }
+
+        .status-card {
+            background-color: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 30px;
+            display: none;
+        }
+
+        .user-info {
+            margin-top: 15px;
+            text-align: left;
+        }
+
+        .info-row {
+            display: flex;
+            margin-bottom: 10px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .info-label {
+            font-weight: bold;
+            min-width: 180px;
+            color: #aab8ff;
+        }
+
+        .info-value {
+            flex-grow: 1;
+            word-break: break-all;
+        }
+
+        .timestamp {
+            color: #ccc;
+            font-size: 0.9em;
+        }
+
+        .status-message {
+            margin-bottom: 20px;
+            font-size: 1.2em;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+            margin-left: 10px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="success-container">
+        <svg class="check-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+        </svg>
+        <h1>Autenticação Concluída</h1>
+        <div class="status-message">Login realizado com sucesso!</div>
+        <button id="btnDetails" class="btn-details">
+            <span id="btnText">Ver Detalhes da Autenticação</span>
+            <span id="btnLoading" class="loading" style="display: none;"></span>
+        </button>
+    </div>
+
+    <div id="statusCard" class="status-card">
+        <div id="loginInfo"></div>
+    </div>
+</div>
+
+<script>
+    function getUrlParameter(name) {
+        name = name.replace(/[[]/, '\\[').replace(/[\]]/, '\\]');
+        const regex = new RegExp('[\\?&]' + name + '=([^&#]*)');
+        const results = regex.exec(location.search);
+        return results === null ? '' : decodeURIComponent(results[1].replace(/\+/g, ' '));
+    }
+
+    function formatDate(dateString) {
+        if (!dateString) return 'N/A';
+
+        try {
+            const date = new Date(dateString);
+            return date.toLocaleString('pt-BR');
+        } catch (e) {
+            return dateString;
+        }
+    }
+
+    async function showLoginDetails() {
+        const tokenId = getUrlParameter('token');
+        const loginInfo = document.getElementById('loginInfo');
+        const statusCard = document.getElementById('statusCard');
+        const btnText = document.getElementById('btnText');
+        const btnLoading = document.getElementById('btnLoading');
+
+        if (!tokenId) {
+            loginInfo.innerHTML = '<div style="color: #F44336;">Token de autenticação não encontrado</div>';
+            statusCard.style.display = 'block';
+            return;
+        }
+
+        try {
+            btnText.textContent = "Carregando...";
+            btnLoading.style.display = "inline-block";
+
+            const response = await fetch(`https://us-central1-superid-pi3-t5-5-c1d5a.cloudfunctions.net/apiV2/getLoginStatus?loginToken=${tokenId}`);
+            const data = await response.json();
+
+            if (!data.success) {
+                throw new Error(data.message || "Erro ao obter status do login");
+            }
+
+            if (data.status !== "authenticated") {
+                throw new Error("Autenticação não foi concluída");
+            }
+
+            let htmlContent = `
+                <div class="user-info">
+                    <div class="info-row">
+                        <div class="info-label">Token:</div>
+                        <div class="info-value">${tokenId}</div>
+                    </div>
+                    <div class="info-row">
+                        <div class="info-label">Usuário:</div>
+                        <div class="info-value">${data.userEmail || 'N/A'}</div>
+                    </div>
+                    <div class="info-row">
+                        <div class="info-label">UID:</div>
+                        <div class="info-value">${data.userUID || 'N/A'}</div>
+                    </div>
+                    <div class="info-row">
+                        <div class="info-label">Dispositivo:</div>
+                        <div class="info-value">${data.deviceId || 'N/A'}</div>
+                    </div>
+                    <div class="info-row">
+                        <div class="info-label">Autenticado em:</div>
+                        <div class="info-value timestamp">${formatDate(data.authenticatedAt)}</div>
+                    </div>
+                </div>
+            `;
+
+            loginInfo.innerHTML = htmlContent;
+            statusCard.style.display = 'block';
+
+        } catch (error) {
+            console.error("Erro ao carregar dados:", error);
+            loginInfo.innerHTML = `<div style="color: #F44336;">Erro ao carregar dados: ${error.message}</div>`;
+            statusCard.style.display = 'block';
+        } finally {
+            btnText.textContent = "Ver Detalhes da Autenticação";
+            btnLoading.style.display = "none";
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const btnDetails = document.getElementById('btnDetails');
+        btnDetails.addEventListener('click', showLoginDetails);
+    });
+</script>
+</body>
+</html>
