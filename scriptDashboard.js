@@ -22,7 +22,7 @@ function getUrlParameter(name) {
 // Função para chamar getLoginStatus
 async function checkLoginStatus(tokenId) {
     try {
-        const response = await fetch(`https://your-firebase-function-url/apiV2/getLoginStatus?loginToken=${tokenId}`);
+        const response = await fetch(`https://apiv2-jvxdqrpvpa-uc.a.run.app/getLoginStatus?loginToken=${tokenId}`);
         const data = await response.json();
 
         if (data.success && data.status === "authenticated") {

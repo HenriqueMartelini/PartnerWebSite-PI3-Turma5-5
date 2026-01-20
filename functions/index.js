@@ -8,8 +8,39 @@ admin.initializeApp();
 
 const app = express();
 
-app.use(cors({ origin: true }));
+// Configuração CORS mais completa
+app.use(cors({
+    origin: true, // Permite qualquer origem
+    credentials: true,
+    methods: ['GET', 'POST', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    exposedHeaders: ['Content-Type']
+}));
+
+// Tratamento explícito de preflight requests (OPTIONS)
+app.options('*', (req, res) => {
+    res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+    res.header('Access-Control-Allow-Credentials', 'true');
+    res.sendStatus(204);
+});
+
 app.use(express.json());
+
+// Middleware para garantir headers CORS em todas as respostas
+app.use((req, res, next) => {
+    const origin = req.headers.origin;
+    if (origin) {
+        res.header('Access-Control-Allow-Origin', origin);
+    } else {
+        res.header('Access-Control-Allow-Origin', '*');
+    }
+    res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+    res.header('Access-Control-Allow-Credentials', 'true');
+    next();
+});
 
 const DEV_MODE = true;
 const HARDCODED_DOMAIN = "www.xptopartner.com";
@@ -94,14 +125,29 @@ app.post("/performAuth", async (req, res) => {
 
         qrCode.on('data', (chunk) => chunks.push(chunk));
         qrCode.on('end', () => {
-            const qrCodeBuffer = Buffer.concat(chunks);
-            const qrCodeBase64 = qrCodeBuffer.toString('base64');
+            try {
+                const qrCodeBuffer = Buffer.concat(chunks);
+                const qrCodeBase64 = qrCodeBuffer.toString('base64');
 
-            return res.json({
-                success: true,
-                loginToken,
-                qrCodeBase64,
-                expiresAt
+                return res.json({
+                    success: true,
+                    loginToken,
+                    qrCodeBase64,
+                    expiresAt
+                });
+            } catch (err) {
+                console.error("Erro ao processar QR Code:", err);
+                return res.status(500).json({
+                    success: false,
+                    message: "Erro ao gerar QR Code"
+                });
+            }
+        });
+        qrCode.on('error', (err) => {
+            console.error("Erro no stream do QR Code:", err);
+            return res.status(500).json({
+                success: false,
+                message: "Erro ao gerar QR Code"
             });
         });
 
@@ -173,4 +219,7 @@ app.get("/getLoginStatus", async (req, res) => {
     }
 });
 
-exports.apiV2 = onRequest(app);
+exports.apiV2 = onRequest({
+    cors: true,
+    region: "us-central1"
+}, app);
